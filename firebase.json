@@ -1,0 +1,39 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "abiyeapp",
+          "appId": "1:503669006055:android:468bdc543e34c386244c42",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "abiyeapp",
+          "configurations": {
+            "android": "1:503669006055:android:468bdc543e34c386244c42",
+            "ios": "1:503669006055:ios:0bdb1af5e3f39009244c42",
+            "macos": "1:503669006055:ios:0bdb1af5e3f39009244c42",
+            "web": "1:503669006055:web:11c16715826596da244c42",
+            "windows": "1:503669006055:web:5f3e0d15c87e419e244c42"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
