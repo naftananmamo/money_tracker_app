@@ -23,6 +23,102 @@ void main() async {
 
 enum UserRole { tedi, abiye }
 
+class FamilyUser {
+  final String id;
+  final String name;
+  final double balance;
+  final String? avatarUrl;
+  final DateTime createdAt;
+
+  FamilyUser({
+    required this.id,
+    required this.name,
+    required this.balance,
+    this.avatarUrl,
+    required this.createdAt,
+  });
+
+  factory FamilyUser.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return FamilyUser(
+      id: doc.id,
+      name: data['name'] ?? '',
+      balance: (data['balance'] ?? 0.0).toDouble(),
+      avatarUrl: data['avatarUrl'],
+      createdAt: DateTime.parse(data['createdAt'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'balance': balance,
+        'avatarUrl': avatarUrl,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  FamilyUser copyWith({
+    String? id,
+    String? name,
+    double? balance,
+    String? avatarUrl,
+    DateTime? createdAt,
+  }) {
+    return FamilyUser(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      balance: balance ?? this.balance,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+}
+
+class UserTransaction {
+  final String id;
+  final String userId;
+  final String userName;
+  final double amount;
+  final String description;
+  final String reason;
+  final bool isAddition;
+  final DateTime createdAt;
+
+  UserTransaction({
+    required this.id,
+    required this.userId,
+    required this.userName,
+    required this.amount,
+    required this.description,
+    required this.reason,
+    required this.isAddition,
+    required this.createdAt,
+  });
+
+  factory UserTransaction.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return UserTransaction(
+      id: doc.id,
+      userId: data['userId'] ?? '',
+      userName: data['userName'] ?? '',
+      amount: (data['amount'] ?? 0.0).toDouble(),
+      description: data['description'] ?? '',
+      reason: data['reason'] ?? '',
+      isAddition: data['isAddition'] ?? true,
+      createdAt: DateTime.parse(data['createdAt'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'userId': userId,
+        'userName': userName,
+        'amount': amount,
+        'description': description,
+        'reason': reason,
+        'isAddition': isAddition,
+        'createdAt': createdAt.toIso8601String(),
+      };
+}
+
 class Category {
   final String id;
   final String name;
@@ -182,66 +278,177 @@ class Dashboard extends StatefulWidget {
 
 class _DashboardState extends State<Dashboard> {
   final _firestore = FirebaseFirestore.instance;
-  double _balance = 0.0;
-  List<Map<String, dynamic>> _transactions = [];
+  List<FamilyUser> _users = [];
+  List<UserTransaction> _transactions = [];
+  FamilyUser? _selectedUser;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _listenToBalance();
+    _loadUsers();
+    _loadTransactions();
   }
 
-  void _listenToBalance() {
-    _firestore.collection('money').doc('shared_money_data').snapshots().listen((doc) {
-      if (doc.exists) {
-        final data = doc.data()!;
-        setState(() {
-          _balance = (data['balance'] ?? 0.0).toDouble();
-          _transactions = (data['transactions'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
-        });
-      }
+  void _loadUsers() {
+    _firestore.collection('family_users').snapshots().listen((snapshot) {
+      setState(() {
+        _users = snapshot.docs.map((doc) => FamilyUser.fromFirestore(doc)).toList();
+        _users.sort((a, b) => a.name.compareTo(b.name));
+        if (_selectedUser == null && _users.isNotEmpty) {
+          _selectedUser = _users.first;
+        }
+        _isLoading = false;
+      });
     });
   }
 
-  Future<void> _addTransaction(bool isAddition) async {
-    final amountController = TextEditingController();
-    final descController = TextEditingController();
+  void _loadTransactions() {
+    _firestore.collection('user_transactions')
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .listen((snapshot) {
+      setState(() {
+        _transactions = snapshot.docs.map((doc) => UserTransaction.fromFirestore(doc)).toList();
+      });
+    });
+  }
+
+  Future<void> _addUser() async {
+    final nameController = TextEditingController();
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(isAddition ? 'Add Money' : 'Subtract Money'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: amountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Amount')),
-            TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
-          ],
+      builder: (context) => AlertDialog(
+        title: const Text('Add Family Member'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            labelText: 'Name',
+            hintText: 'Enter family member name',
+          ),
+          autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () async {
-              final amount = double.tryParse(amountController.text.trim()) ?? 0.0;
-              final desc = descController.text.trim();
-              if (amount > 0) {
-                final newBalance = isAddition ? _balance + amount : _balance - amount;
-                final newTx = {
-                  'amount': amount,
-                  'description': desc,
-                  'date': DateTime.now().toIso8601String(),
-                  'isAddition': isAddition,
-                };
-                final newTransactions = [newTx, ..._transactions];
-                await _firestore.collection('money').doc('shared_money_data').set({
-                  'balance': newBalance,
-                  'transactions': newTransactions,
-                });
+              final name = nameController.text.trim();
+              if (name.isNotEmpty) {
+                final newUser = FamilyUser(
+                  id: '',
+                  name: name,
+                  balance: 0.0,
+                  createdAt: DateTime.now(),
+                );
+                await _firestore.collection('family_users').add(newUser.toMap());
                 Navigator.pop(context);
               }
             },
-            child: const Text('Confirm'),
-          )
+            child: const Text('Add'),
+          ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _addTransaction(bool isAddition) async {
+    if (_users.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add family members first')),
+      );
+      return;
+    }
+
+    final amountController = TextEditingController();
+    final descController = TextEditingController();
+    final reasonController = TextEditingController();
+    FamilyUser? selectedUser = _selectedUser;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(isAddition ? 'Add Money' : 'Subtract Money'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<FamilyUser>(
+                value: selectedUser,
+                decoration: const InputDecoration(labelText: 'Family Member'),
+                items: _users.map((user) => DropdownMenuItem(
+                  value: user,
+                  child: Text('${user.name} (\$${user.balance.toStringAsFixed(2)})'),
+                )).toList(),
+                onChanged: (user) => setDialogState(() => selectedUser = user),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Amount'),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: InputDecoration(
+                  labelText: 'Reason',
+                  hintText: isAddition ? 'e.g., Chores, Allowance' : 'e.g., Purchase, Spending',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(
+                  labelText: 'Description (Optional)',
+                  hintText: 'Additional details',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final amount = double.tryParse(amountController.text.trim()) ?? 0.0;
+                final reason = reasonController.text.trim();
+                
+                if (amount > 0 && selectedUser != null && reason.isNotEmpty) {
+                  final newBalance = isAddition 
+                      ? selectedUser!.balance + amount 
+                      : selectedUser!.balance - amount;
+                  
+                  // Update user balance
+                  await _firestore.collection('family_users').doc(selectedUser!.id).update({
+                    'balance': newBalance,
+                  });
+                  
+                  // Add transaction record
+                  final transaction = UserTransaction(
+                    id: '',
+                    userId: selectedUser!.id,
+                    userName: selectedUser!.name,
+                    amount: amount,
+                    description: descController.text.trim(),
+                    reason: reason,
+                    isAddition: isAddition,
+                    createdAt: DateTime.now(),
+                  );
+                  
+                  await _firestore.collection('user_transactions').add(transaction.toMap());
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -257,14 +464,15 @@ class _DashboardState extends State<Dashboard> {
 
   @override
   Widget build(BuildContext context) {
-    // final isTedi = widget.role == UserRole.tedi; // Unused variable removed
     final bool isAbiye = widget.role == UserRole.abiye;
-    // Pink theme for Abiye's dashboard
-    final Color mainColor = isAbiye ? const Color(0xFFFF69B4) : const Color(0xFF1565C0); // Pink for Abiye, blue for Tedi
-    final Color accentColor = isAbiye ? const Color(0xFFFF1493) : const Color(0xFF263238); // Deeper pink accent for Abiye
-    final Color bgColor = isAbiye ? const Color(0xFFFFE4F0) : const Color(0xFFF5F7FA); // Pink bg for Abiye
-    final Color cardColor = isAbiye ? const Color(0xFFFFB6E6) : Colors.white; // Pink card for Abiye
+    final Color mainColor = isAbiye ? const Color(0xFFFF69B4) : const Color(0xFF1565C0);
+    final Color accentColor = isAbiye ? const Color(0xFFFF1493) : const Color(0xFF263238);
+    final Color bgColor = isAbiye ? const Color(0xFFFFE4F0) : const Color(0xFFF5F7FA);
+    final Color cardColor = isAbiye ? const Color(0xFFFFB6E6) : Colors.white;
     final Color textColor = isAbiye ? accentColor : const Color(0xFF263238);
+    
+    final totalBalance = _users.fold(0.0, (sum, user) => sum + user.balance);
+    
     return Scaffold(
       backgroundColor: bgColor,
       drawer: Drawer(
@@ -278,6 +486,11 @@ class _DashboardState extends State<Dashboard> {
               title: Text('Categories', style: TextStyle(color: textColor)),
               onTap: _openCategoryManager,
             ),
+            if (!isAbiye)
+              ListTile(
+                title: Text('Manage Users', style: TextStyle(color: textColor)),
+                onTap: _addUser,
+              ),
             ListTile(
               title: const Text('Logout', style: TextStyle(color: Colors.redAccent)),
               onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RoleSelector())),
@@ -287,79 +500,156 @@ class _DashboardState extends State<Dashboard> {
       ),
       appBar: AppBar(
         backgroundColor: mainColor,
-        title: Text(widget.role == UserRole.tedi ? 'Tedi Dashboard' : 'Abiye Dashboard', style: const TextStyle(color: Colors.white)),
+        title: Text(widget.role == UserRole.tedi ? 'Family Manager' : 'Family Money', style: const TextStyle(color: Colors.white)),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Center(
-              child: Text('Balance: \$${_balance.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              child: Text('Total: \$${totalBalance.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             ),
           ),
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Current Balance', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: mainColor)),
-            const SizedBox(height: 12),
-            Card(
-              color: cardColor,
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-                child: Text(
-                  '\$${_balance.toStringAsFixed(2)}',
-                  style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: mainColor),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (!isAbiye)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.add_circle, color: Colors.green),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green[50], foregroundColor: Colors.green[900]),
-                    onPressed: () => _addTransaction(true),
-                    label: const Text('Add Money'),
+                  // Family Members Section
+                  Card(
+                    color: cardColor,
+                    elevation: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Family Members', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: mainColor)),
+                              if (!isAbiye)
+                                IconButton(
+                                  icon: Icon(Icons.person_add, color: mainColor),
+                                  onPressed: _addUser,
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _users.isEmpty
+                              ? Text('No family members added yet', style: TextStyle(color: textColor))
+                              : Column(
+                                  children: _users.map((user) => Card(
+                                    color: Colors.white,
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    child: ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: mainColor,
+                                        child: Text(user.name[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
+                                      ),
+                                      title: Text(user.name, style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+                                      subtitle: Text('Balance: \$${user.balance.toStringAsFixed(2)}', style: TextStyle(color: textColor.withOpacity(0.7))),
+                                      trailing: user.balance >= 0 
+                                          ? Icon(Icons.trending_up, color: Colors.green)
+                                          : Icon(Icons.trending_down, color: Colors.red),
+                                    ),
+                                  )).toList(),
+                                ),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 24),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.remove_circle, color: Colors.red),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red[50], foregroundColor: Colors.red[900]),
-                    onPressed: () => _addTransaction(false),
-                    label: const Text('Subtract Money'),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Action Buttons (Tedi only)
+                  if (!isAbiye) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.add_circle, color: Colors.green),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green[50],
+                              foregroundColor: Colors.green[900],
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            onPressed: () => _addTransaction(true),
+                            label: const Text('Add Money'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.remove_circle, color: Colors.red),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red[50],
+                              foregroundColor: Colors.red[900],
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            onPressed: () => _addTransaction(false),
+                            label: const Text('Subtract Money'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  
+                  // Recent Transactions
+                  Card(
+                    color: cardColor,
+                    elevation: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Recent Transactions', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: mainColor)),
+                          const SizedBox(height: 16),
+                          _transactions.isEmpty
+                              ? Text('No transactions yet!', style: TextStyle(color: textColor))
+                              : Column(
+                                  children: _transactions.take(10).map((tx) => Card(
+                                    color: Colors.white,
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    child: ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: tx.isAddition ? Colors.green : Colors.red,
+                                        child: Icon(
+                                          tx.isAddition ? Icons.add : Icons.remove,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      title: Text(
+                                        '${tx.isAddition ? '+' : '-'}\$${tx.amount.toStringAsFixed(2)} - ${tx.userName}',
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+                                      ),
+                                      subtitle: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Reason: ${tx.reason}', style: TextStyle(color: textColor.withOpacity(0.8))),
+                                          if (tx.description.isNotEmpty)
+                                            Text('Note: ${tx.description}', style: TextStyle(color: textColor.withOpacity(0.6))),
+                                        ],
+                                      ),
+                                      trailing: Text(
+                                        tx.createdAt.toString().substring(0, 16).replaceFirst('T', '\n'),
+                                        style: TextStyle(color: textColor.withOpacity(0.6), fontSize: 12),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  )).toList(),
+                                ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
-            const SizedBox(height: 32),
-            Text('Transaction History', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _transactions.isEmpty
-                  ? Text('No transactions yet!', style: TextStyle(color: textColor))
-                  : ListView.builder(
-                      itemCount: _transactions.length,
-                      itemBuilder: (context, i) {
-                        final tx = _transactions[i];
-                        return ListTile(
-                          leading: Icon(
-                            tx['isAddition'] == true ? Icons.add : Icons.remove,
-                            color: tx['isAddition'] == true ? Colors.green : Colors.red,
-                          ),
-                          title: Text('${tx['isAddition'] == true ? '+ ' : '- '}\$${(tx['amount'] as num).toStringAsFixed(2)}', style: TextStyle(color: textColor)),
-                          subtitle: Text(tx['description'] ?? '', style: TextStyle(color: textColor.withOpacity(0.7))),
-                          trailing: Text(tx['date'] != null ? tx['date'].toString().substring(0, 16).replaceFirst('T', ' ') : '', style: TextStyle(color: textColor.withOpacity(0.6))),
-                        );
-                      },
-                    ),
             ),
-          ],
-        ),
-      ),
     );
   }
 }
