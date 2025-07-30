@@ -1,16 +1,75 @@
-# abiye_app
+# 💰 Abiye App - Family Money Tracker
 
-A new Flutter project.
+A Flutter family allowance tracking app designed for parent-child money management.
 
-## Getting Started
+## 👨‍👧 Features
 
-This project is a starting point for a Flutter application.
+- **Dual User Interface**: Separate views for parent (Tedi) and child (Abiye)
+- **Money Management**: Track balance, add/subtract money with descriptions
+- **Task & Category System**: Organize chores and tasks with monetary values
+- **Real-time Sync**: Firebase Firestore for cross-device synchronization
+- **Child-Friendly Design**: Colorful, intuitive interface with role-based themes
 
-A few resources to get you started if this is your first Flutter project:
+## 🔐 User Roles
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Tedi (Parent) - Admin Access
+- Password protected: `Tediab1234`
+- Can add/subtract money from shared balance
+- Full category and task management
+- Blue-themed interface
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Abiye (Child) - View Access
+- No password required
+- Can view current balance and transaction history
+- Can browse categories and tasks (read-only)
+- Pink-themed interface
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Flutter SDK (3.8.1+)
+- Firebase account and project setup
+- Android Studio / VS Code with Flutter plugins
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd abiye_app
+   ```
+
+2. **Install dependencies**
+   ```bash
+   flutter pub get
+   ```
+
+3. **Run the app**
+   ```bash
+   flutter run
+   ```
+
+## 🔥 Firebase Setup
+
+This app uses Firebase Firestore for data persistence. The configuration is already included in `lib/firebase_options.dart`.
+
+**Project ID**: `abiyeapp`
+
+## 📱 Supported Platforms
+
+- ✅ Android
+- ✅ iOS  
+- ✅ Web
+- ✅ Windows (experimental)
+- ✅ macOS
+
+## 🛠️ Development
+
+- **Framework**: Flutter 3.8.1+
+- **Language**: Dart
+- **Database**: Firebase Firestore
+- **Architecture**: StatefulWidget with local state management
+
+## 📄 License
+
+This project is for personal/educational use.

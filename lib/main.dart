@@ -28,14 +28,7 @@ class Category {
   final String name;
   Category({required this.id, required this.name});
 
-  factory Category.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return Category(
-      id: doc.id,
-      name: data['name'],
-    );
-  }
-
+  // Removed Firebase dependency
   Map<String, dynamic> toMap() => {
         'name': name,
       };
@@ -49,16 +42,7 @@ class Task {
 
   Task({required this.id, required this.name, required this.price, required this.createdAt});
 
-  factory Task.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return Task(
-      id: doc.id,
-      name: data['name'],
-      price: (data['price'] ?? 0.0).toDouble(),
-      createdAt: DateTime.parse(data['createdAt']),
-    );
-  }
-
+  // Removed Firebase dependency  
   Map<String, dynamic> toMap() => {
         'name': name,
         'price': price,
@@ -83,8 +67,6 @@ class MoneyTrackerApp extends StatelessWidget {
           onSecondary: Colors.white,
           error: Colors.redAccent,
           onError: Colors.white,
-          background: Color(0xFFF5F7FA), // very light blue/grey
-          onBackground: Color(0xFF263238),
           surface: Colors.white,
           onSurface: Color(0xFF263238),
         ),
@@ -199,26 +181,21 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  final _firestore = FirebaseFirestore.instance;
-  double _balance = 0.0;
-  List<Map<String, dynamic>> _transactions = [];
+  // Local storage instead of Firebase
+  double _balance = 150.0; // Starting balance
+  List<Map<String, dynamic>> _transactions = [
+    {
+      'amount': 150.0,
+      'description': 'Initial allowance',
+      'date': DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
+      'isAddition': true,
+    }
+  ];
 
   @override
   void initState() {
     super.initState();
-    _listenToBalance();
-  }
-
-  void _listenToBalance() {
-    _firestore.collection('money').doc('shared_money_data').snapshots().listen((doc) {
-      if (doc.exists) {
-        final data = doc.data()!;
-        setState(() {
-          _balance = (data['balance'] ?? 0.0).toDouble();
-          _transactions = (data['transactions'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
-        });
-      }
-    });
+    // No Firebase listener needed
   }
 
   Future<void> _addTransaction(bool isAddition) async {
@@ -242,17 +219,15 @@ class _DashboardState extends State<Dashboard> {
               final amount = double.tryParse(amountController.text.trim()) ?? 0.0;
               final desc = descController.text.trim();
               if (amount > 0) {
-                final newBalance = isAddition ? _balance + amount : _balance - amount;
-                final newTx = {
-                  'amount': amount,
-                  'description': desc,
-                  'date': DateTime.now().toIso8601String(),
-                  'isAddition': isAddition,
-                };
-                final newTransactions = [newTx, ..._transactions];
-                await _firestore.collection('money').doc('shared_money_data').set({
-                  'balance': newBalance,
-                  'transactions': newTransactions,
+                setState(() {
+                  _balance = isAddition ? _balance + amount : _balance - amount;
+                  final newTx = {
+                    'amount': amount,
+                    'description': desc,
+                    'date': DateTime.now().toIso8601String(),
+                    'isAddition': isAddition,
+                  };
+                  _transactions.insert(0, newTx); // Add to beginning of list
                 });
                 Navigator.pop(context);
               }
@@ -289,8 +264,8 @@ class _DashboardState extends State<Dashboard> {
         child: ListView(
           children: [
             DrawerHeader(
-              child: Text('Menu', style: TextStyle(color: mainColor, fontWeight: FontWeight.bold, fontSize: 20)),
               decoration: BoxDecoration(color: bgColor),
+              child: Text('Menu', style: TextStyle(color: mainColor, fontWeight: FontWeight.bold, fontSize: 20)),
             ),
             ListTile(
               title: Text('Categories', style: TextStyle(color: textColor)),
@@ -368,7 +343,7 @@ class _DashboardState extends State<Dashboard> {
                             tx['isAddition'] == true ? Icons.add : Icons.remove,
                             color: tx['isAddition'] == true ? Colors.green : Colors.red,
                           ),
-                          title: Text((tx['isAddition'] == true ? '+ ' : '- ') + '\$${(tx['amount'] as num).toStringAsFixed(2)}', style: TextStyle(color: textColor)),
+                          title: Text('${tx['isAddition'] == true ? '+ ' : '- '}\$${(tx['amount'] as num).toStringAsFixed(2)}', style: TextStyle(color: textColor)),
                           subtitle: Text(tx['description'] ?? '', style: TextStyle(color: textColor.withOpacity(0.7))),
                           trailing: Text(tx['date'] != null ? tx['date'].toString().substring(0, 16).replaceFirst('T', ' ') : '', style: TextStyle(color: textColor.withOpacity(0.6))),
                         );
@@ -427,38 +402,41 @@ class CategoryManager extends StatefulWidget {
 
 class _CategoryManagerState extends State<CategoryManager> {
   final _firestore = FirebaseFirestore.instance;
-  List<Category> _categories = [];
-  String? _selectedCategoryId;
-  List<Task> _tasks = [];
+  // Local storage instead of Firebase
+  List<Category> _categories = [
+    Category(id: '1', name: 'Chores'),
+    Category(id: '2', name: 'School Tasks'),
+    Category(id: '3', name: 'Extra Activities'),
+  ];
+  String? _selectedCategoryId = '1';
+  
+  // Sample tasks with local storage
+  Map<String, List<Task>> _tasksByCategory = {
+    '1': [
+      Task(id: '1', name: 'Clean room', price: 5.0, createdAt: DateTime.now()),
+      Task(id: '2', name: 'Do dishes', price: 3.0, createdAt: DateTime.now()),
+      Task(id: '3', name: 'Take out trash', price: 2.0, createdAt: DateTime.now()),
+    ],
+    '2': [
+      Task(id: '4', name: 'Homework completed', price: 10.0, createdAt: DateTime.now()),
+      Task(id: '5', name: 'Study for test', price: 15.0, createdAt: DateTime.now()),
+    ],
+    '3': [
+      Task(id: '6', name: 'Help with groceries', price: 5.0, createdAt: DateTime.now()),
+      Task(id: '7', name: 'Read a book', price: 8.0, createdAt: DateTime.now()),
+    ],
+  };
+
+  List<Task> get _tasks => _tasksByCategory[_selectedCategoryId] ?? [];
 
   @override
   void initState() {
     super.initState();
-    _listenToCategories();
-  }
-
-  void _listenToCategories() {
-    _firestore.collection('categories').snapshots().listen((snapshot) {
-      final categories = snapshot.docs.map((doc) => Category.fromFirestore(doc)).toList();
-      // Debug print to check Firestore data
-      print('Firestore categories snapshot:');
-      for (var doc in snapshot.docs) {
-        print('  id: \'${doc.id}\', data: \'${doc.data()}\'');
-      }
-      setState(() => _categories = categories);
-      if (_selectedCategoryId == null && categories.isNotEmpty) {
-        _selectCategory(categories.first.id);
-      }
-    });
+    // No Firebase setup needed
   }
 
   void _selectCategory(String categoryId) {
     setState(() => _selectedCategoryId = categoryId);
-    _firestore.collection('categories').doc(categoryId).collection('tasks').snapshots().listen((snapshot) {
-      setState(() {
-        _tasks = snapshot.docs.map((doc) => Task.fromFirestore(doc)).toList();
-      });
-    });
   }
 
   Future<void> _addCategory() async {
@@ -474,7 +452,11 @@ class _CategoryManagerState extends State<CategoryManager> {
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
-                await _firestore.collection('categories').add({'name': name});
+                setState(() {
+                  final newId = (_categories.length + 1).toString();
+                  _categories.add(Category(id: newId, name: name));
+                  _tasksByCategory[newId] = [];
+                });
                 Navigator.pop(context);
               }
             },
@@ -498,7 +480,12 @@ class _CategoryManagerState extends State<CategoryManager> {
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
-                await _firestore.collection('categories').doc(category.id).update({'name': name});
+                setState(() {
+                  final index = _categories.indexWhere((c) => c.id == category.id);
+                  if (index != -1) {
+                    _categories[index] = Category(id: category.id, name: name);
+                  }
+                });
                 Navigator.pop(context);
               }
             },
@@ -510,10 +497,13 @@ class _CategoryManagerState extends State<CategoryManager> {
   }
 
   Future<void> _deleteCategory(Category category) async {
-    await _firestore.collection('categories').doc(category.id).delete();
-    if (_selectedCategoryId == category.id) {
-      setState(() => _selectedCategoryId = null);
-    }
+    setState(() {
+      _categories.removeWhere((c) => c.id == category.id);
+      _tasksByCategory.remove(category.id);
+      if (_selectedCategoryId == category.id) {
+        _selectedCategoryId = _categories.isNotEmpty ? _categories.first.id : null;
+      }
+    });
   }
 
   Future<void> _addTask() async {
