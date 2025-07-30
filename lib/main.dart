@@ -181,21 +181,26 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  // Local storage instead of Firebase
-  double _balance = 150.0; // Starting balance
-  List<Map<String, dynamic>> _transactions = [
-    {
-      'amount': 150.0,
-      'description': 'Initial allowance',
-      'date': DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
-      'isAddition': true,
-    }
-  ];
+  final _firestore = FirebaseFirestore.instance;
+  double _balance = 0.0;
+  List<Map<String, dynamic>> _transactions = [];
 
   @override
   void initState() {
     super.initState();
-    // No Firebase listener needed
+    _listenToBalance();
+  }
+
+  void _listenToBalance() {
+    _firestore.collection('money').doc('shared_money_data').snapshots().listen((doc) {
+      if (doc.exists) {
+        final data = doc.data()!;
+        setState(() {
+          _balance = (data['balance'] ?? 0.0).toDouble();
+          _transactions = (data['transactions'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+        });
+      }
+    });
   }
 
   Future<void> _addTransaction(bool isAddition) async {
@@ -219,15 +224,17 @@ class _DashboardState extends State<Dashboard> {
               final amount = double.tryParse(amountController.text.trim()) ?? 0.0;
               final desc = descController.text.trim();
               if (amount > 0) {
-                setState(() {
-                  _balance = isAddition ? _balance + amount : _balance - amount;
-                  final newTx = {
-                    'amount': amount,
-                    'description': desc,
-                    'date': DateTime.now().toIso8601String(),
-                    'isAddition': isAddition,
-                  };
-                  _transactions.insert(0, newTx); // Add to beginning of list
+                final newBalance = isAddition ? _balance + amount : _balance - amount;
+                final newTx = {
+                  'amount': amount,
+                  'description': desc,
+                  'date': DateTime.now().toIso8601String(),
+                  'isAddition': isAddition,
+                };
+                final newTransactions = [newTx, ..._transactions];
+                await _firestore.collection('money').doc('shared_money_data').set({
+                  'balance': newBalance,
+                  'transactions': newTransactions,
                 });
                 Navigator.pop(context);
               }
