@@ -1,18 +1,17 @@
-// ✅ Updated Flutter App Code with organized folder structure
-// - Models: FamilyUser, UserTransaction, Category, Task, UserRole
-// - Screens: RoleSelector, Dashboard, CategoryManager  
-// - Utils: AppTheme for consistent styling
-// - Widgets: Custom reusable widgets
-
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'firebase_options.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'screens/role_selector_screen.dart';
+import 'features/auth/presentation/bloc/auth_cubit.dart';
+import 'features/auth/presentation/pages/role_selector_page.dart';
 import 'utils/app_theme.dart';
+import 'injection_container.dart' as di;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase
   if (kIsWeb) {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -20,6 +19,10 @@ void main() async {
   } else {
     await Firebase.initializeApp();
   }
+  
+  // Initialize dependency injection
+  await di.init();
+  
   runApp(const MoneyTrackerApp());
 }
 
@@ -28,11 +31,14 @@ class MoneyTrackerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Abiye App',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.theme,
-      home: const RoleSelector(),
+    return BlocProvider(
+      create: (context) => di.sl<AuthCubit>(),
+      child: MaterialApp(
+        title: 'Abiye App',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.theme,
+        home: const RoleSelectorPage(),
+      ),
     );
   }
 }

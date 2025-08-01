@@ -26,8 +26,9 @@ class AppTheme {
   // Color constants
   static const Color landingBg = Color(0xFFFFE4F0);
   static const Color tediColor = Color(0xFF1565C0);
-  static const Color abiyeColor = Color(0xFFFF69B4);
-  static const Color abiyeAccent = Color(0xFFFF1493);
-  static const Color abiyeBg = Color(0xFFFFE4F0);
-  static const Color abiyeCard = Color(0xFFFFB6E6);
+  static const Color abiyeColor = Color.fromARGB(255, 97, 176, 232);
+  static const Color abiyeAccent = Color.fromARGB(255, 97, 176, 232);
+  static const Color abiyeBg = Color(0xFFF5F7FA); // Same as Tedi - light grey background
+  static const Color abiyeCard = Colors.white; // Same as Tedi - white cards
+  static const Color abiyeTextColor = Color(0xFF263238); // Same as Tedi - dark blue-grey text
 }
