@@ -72,13 +72,13 @@ class RoleSelector extends StatelessWidget {
             ElevatedButton.icon(
               icon: const Icon(daughterIcon, color: Colors.white),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.abiyeColor,
+                backgroundColor: const Color.fromARGB(255, 170, 126, 150),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const Dashboard(role: UserRole.abiye))),
-              label: const Text('Abiye ', style: TextStyle(fontSize: 18)),
+              label: const Text('Challengers', style: TextStyle(fontSize: 18)),
             )
           ],
         ),
