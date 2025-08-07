@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "503669006055",
+    "project_id": "abiyeapp",
+    "storage_bucket": "abiyeapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:503669006055:android:468bdc543e34c386244c42",
+        "android_client_info": {
+          "package_name": "com.example.abiye_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtQqq2MDMBIwAIjv5Jnu7cMbrwjIEZGu8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
