@@ -8,6 +8,7 @@
       "version": "1.0.0+1",
       "dependencies": [
         "cloud_firestore",
+        "crypto",
         "cupertino_icons",
         "dartz",
         "equatable",
@@ -16,7 +17,6 @@
         "flutter",
         "flutter_bloc",
         "get_it",
-        "intl",
         "shared_preferences"
       ],
       "devDependencies": [
@@ -65,12 +65,10 @@
       "dependencies": []
     },
     {
-      "name": "intl",
-      "version": "0.19.0",
+      "name": "crypto",
+      "version": "3.0.6",
       "dependencies": [
-        "clock",
-        "meta",
-        "path"
+        "typed_data"
       ]
     },
     {
@@ -325,6 +323,13 @@
         "stream_channel",
         "string_scanner",
         "term_glyph"
+      ]
+    },
+    {
+      "name": "typed_data",
+      "version": "1.4.0",
+      "dependencies": [
+        "collection"
       ]
     },
     {
@@ -585,13 +590,6 @@
       "dependencies": [
         "meta",
         "path"
-      ]
-    },
-    {
-      "name": "typed_data",
-      "version": "1.4.0",
-      "dependencies": [
-        "collection"
       ]
     }
   ],

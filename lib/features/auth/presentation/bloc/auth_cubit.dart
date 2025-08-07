@@ -59,4 +59,37 @@ class AuthCubit extends Cubit<AuthState> {
       },
     );
   }
+
+  Future<void> login(String email, String password) async {
+    emit(const AuthLoading());
+
+    final result = await _authRepository.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    result.fold(
+      (failure) => emit(AuthFailure(failure.message)),
+      (user) => emit(AuthSuccess(UserRole.tedi)), // Default to tedi role
+    );
+  }
+
+  Future<void> register({
+    required String email,
+    required String password,
+    required String name,
+  }) async {
+    emit(const AuthLoading());
+
+    final result = await _authRepository.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+      name: name,
+    );
+
+    result.fold(
+      (failure) => emit(AuthFailure(failure.message)),
+      (user) => emit(AuthSuccess(UserRole.tedi)), // Default to tedi role
+    );
+  }
 }

@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow admin collection access for admin login
+    match /admins/{adminEmail} {
+      allow read, write: if true; // Allow admin operations
+    }
+    
+    // Allow admin logs for admin operations
+    match /admin_logs/{document} {
+      allow read, write: if true; // Allow admin logging
+    }
+    
+    // Allow transactions for admin management
+    match /transactions/{document} {
+      allow read, write: if true; // Allow transaction management
+    }
+    
+    // Allow users collection for user management
+    match /users/{document} {
+      allow read, write: if true; // Allow full access for admin operations
+    }
+    
+    // Allow deleted_users for admin operations
+    match /deleted_users/{document} {
+      allow read, write: if true; // Allow admin user management
+    }
+    
+    // Allow role_passwords for authentication
+    match /role_passwords/{document} {
+      allow read: if true; // Allow reading role passwords for authentication
+      allow write: if false; // Don't allow writing to prevent tampering
+    }
+    
+    // Default: Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
