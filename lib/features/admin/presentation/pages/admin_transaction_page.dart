@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../cubits/admin_transaction_cubit.dart';
 import '../cubits/admin_transaction_state.dart';
 import '../../../../utils/app_theme.dart';
@@ -46,18 +47,34 @@ class _AdminTransactionPageState extends State<AdminTransactionPage> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          FloatingActionButton(
-            heroTag: "cleanup",
-            onPressed: _showCleanupDialog,
-            backgroundColor: Colors.orange,
-            child: const Icon(Icons.cleaning_services, color: Colors.white),
+          FloatingActionButton.extended(
+            heroTag: "manage_users",
+            onPressed: () => _showUserManagementDialog(context),
+            backgroundColor: Colors.blue[700],
+            icon: const Icon(Icons.people, color: Colors.white, size: 28),
+            label: const Text(
+              'Manage Users',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           const SizedBox(height: 16),
-          FloatingActionButton(
+          FloatingActionButton.extended(
             heroTag: "manage_money",
             onPressed: () => _showUserMoneyDialog(context),
             backgroundColor: Colors.red[700],
-            child: const Icon(Icons.monetization_on, color: Colors.white),
+            icon: const Icon(Icons.monetization_on, color: Colors.white, size: 28),
+            label: const Text(
+              'Manage User Money',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -207,33 +224,52 @@ class _AdminTransactionPageState extends State<AdminTransactionPage> {
                             ),
                         ],
                       ),
-                      trailing: isAdminAction 
-                        ? Chip(
-                            label: Text(
-                              type == 'income' ? '+\$${amount.toStringAsFixed(2)}' : '-\$${amount.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                color: type == 'income' ? Colors.green : Colors.red,
-                                fontWeight: FontWeight.bold,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isAdminAction)
+                            Chip(
+                              label: Text(
+                                type == 'income' ? '+\$${amount.toStringAsFixed(2)}' : '-\$${amount.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: type == 'income' ? Colors.green : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
+                              backgroundColor: type == 'income' ? Colors.green[50] : Colors.red[50],
                             ),
-                            backgroundColor: type == 'income' ? Colors.green[50] : Colors.red[50],
-                          )
-                        : PopupMenuButton<String>(
+                          const SizedBox(width: 8),
+                          PopupMenuButton<String>(
                             onSelected: (value) {
-                              if (value == 'delete' && transaction['userId'] != null) {
+                              if (value == 'delete_transaction') {
+                                _showDeleteTransactionDialog(context, index, transaction);
+                              } else if (value == 'delete_user' && transaction['userId'] != null) {
                                 _showDeleteUserDialog(context, transaction['userId']);
                               }
                             },
                             itemBuilder: (context) => [
                               const PopupMenuItem(
-                                value: 'delete',
+                                value: 'delete_transaction',
                                 child: Row(
                                   children: [
-                                    Icon(Icons.delete, color: Colors.red),
+                                    Icon(Icons.delete_outline, color: Colors.orange),
                                     SizedBox(width: 8),
-                                    Text('Delete User'),
+                                    Text('Delete Transaction'),
                                   ],
                                 ),
+                              ),
+                              if (!isAdminAction && transaction['userId'] != null)
+                                const PopupMenuItem(
+                                  value: 'delete_user',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_forever, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Delete User'),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ),
@@ -248,6 +284,49 @@ class _AdminTransactionPageState extends State<AdminTransactionPage> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  void _showUserManagementDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => UserManagementDialog(),
+    );
+  }
+
+  void _showDeleteTransactionDialog(BuildContext context, int index, Map<String, dynamic> transaction) {
+    final transactionId = transaction['id']; // Get the transaction ID
+    
+    if (transactionId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot delete transaction: No ID found'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Transaction'),
+        content: Text('Are you sure you want to delete this transaction?\n\n"${transaction['description'] ?? 'No description'}"'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              context.read<AdminTransactionCubit>().deleteTransaction(transactionId);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
   }
@@ -303,156 +382,6 @@ class _AdminTransactionPageState extends State<AdminTransactionPage> {
       builder: (dialogContext) => UserMoneyDialog(),
     );
   }
-
-  void _showCleanupDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clean Up Mock Data'),
-        content: const Text(
-          'This will remove all sample/mock transactions from the database. '
-          'This action cannot be undone. Are you sure?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _cleanupMockData();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Clean Up', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _cleanupMockData() async {
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cleaning up ALL mock/sample data...'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      final firestore = FirebaseFirestore.instance;
-      
-      // Get all transactions
-      final transactionsSnapshot = await firestore.collection('transactions').get();
-      
-      // Delete transactions that look like mock data - expanded detection
-      int deletedCount = 0;
-      final mockDescriptions = [
-        'Coffee Shop',
-        'Salary Deposit', 
-        'Grocery Shopping',
-        'Sample Transaction',
-        'Test Transaction',
-        'Gas Station',
-        'Restaurant',
-        'Online Purchase',
-        'ATM Withdrawal',
-        'Bank Transfer',
-        'Utility Bill',
-        'Rent Payment',
-        'Freelance Payment',
-        'Investment Return',
-        'Gift',
-        'Refund',
-        'Morning Coffee',
-        'Lunch',
-        'Dinner',
-        'Subscription',
-        'Shopping',
-        'Entertainment',
-        'Transportation',
-        'Healthcare',
-        'Education',
-        'Insurance',
-        'Maintenance',
-        'Office Supplies',
-        'Parking',
-        'Taxi',
-        'Food & Drink',
-        'Travel',
-        'Hotel',
-        'Flight',
-        'Example',
-        'Demo',
-        'Sample',
-        'Mock',
-        'Test',
-      ];
-
-      // Also check for common mock amounts
-      final mockAmounts = [10.0, 25.0, 50.0, 75.0, 100.0, 150.0, 200.0, 250.0, 300.0, 500.0, 1000.0, 1500.0, 2000.0, 2500.0, 3000.0];
-      
-      for (var doc in transactionsSnapshot.docs) {
-        final data = doc.data();
-        final description = data['description'] ?? '';
-        final amount = data['amount']?.toDouble() ?? 0.0;
-        
-        // Check if it's mock data by description or amount
-        bool isMockData = mockDescriptions.any((mock) => description.toLowerCase().contains(mock.toLowerCase())) ||
-                         mockAmounts.contains(amount);
-        
-        if (isMockData) {
-          await doc.reference.delete();
-          deletedCount++;
-        }
-      }
-
-      // Also clean up any test users
-      final usersSnapshot = await firestore.collection('users').get();
-      int deletedUsers = 0;
-      final testEmails = [
-        'user1@example.com',
-        'user2@example.com', 
-        'user3@example.com',
-        'john.doe@example.com',
-        'jane.smith@example.com',
-        'bob.johnson@example.com',
-        'alice.wilson@example.com',
-        'test@example.com',
-        'example@example.com',
-        'demo@example.com',
-        'sample@example.com',
-      ];
-      
-      for (var doc in usersSnapshot.docs) {
-        final data = doc.data();
-        final email = data['email'] ?? '';
-        
-        if (testEmails.contains(email.toLowerCase())) {
-          await doc.reference.delete();
-          deletedUsers++;
-        }
-      }
-
-      // Reload transactions to update the display
-      context.read<AdminTransactionCubit>().loadTransactions();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Successfully deleted $deletedCount mock transactions and $deletedUsers test users'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error cleaning up data: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
 }
 
 class UserMoneyDialog extends StatefulWidget {
@@ -488,6 +417,7 @@ class _UserMoneyDialogState extends State<UserMoneyDialog> {
                   'id': doc.id,
                   ...doc.data(),
                 })
+            .where((user) => user['email'] != 'tedi@gmail.com') // Exclude admin
             .toList();
         isLoading = false;
       });
@@ -698,5 +628,320 @@ class _UserMoneyDialogState extends State<UserMoneyDialog> {
     amountController.dispose();
     reasonController.dispose();
     super.dispose();
+  }
+}
+
+class UserManagementDialog extends StatefulWidget {
+  @override
+  _UserManagementDialogState createState() => _UserManagementDialogState();
+}
+
+class _UserManagementDialogState extends State<UserManagementDialog> {
+  List<Map<String, dynamic>> users = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      final usersSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .get();
+      
+      setState(() {
+        users = usersSnapshot.docs
+            .map((doc) => {
+                  'id': doc.id,
+                  ...doc.data(),
+                })
+            .where((user) => user['email'] != 'tedi@gmail.com') // Exclude admin
+            .toList();
+        isLoading = false;
+      });
+      
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading users: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('User Management'),
+      content: SizedBox(
+        width: 500,
+        height: 400,
+        child: Column(
+          children: [
+            // Add User Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showAddUserDialog(),
+                icon: const Icon(Icons.person_add, color: Colors.white),
+                label: const Text('Add New User'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            
+            // Users List
+            Expanded(
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : users.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No users found',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: users.length,
+                          itemBuilder: (context, index) {
+                            final user = users[index];
+                            final email = user['email'] ?? 'Unknown';
+                            final name = user['name'] ?? user['displayName'] ?? 'Unknown';
+                            final balance = (user['balance'] ?? 0.0).toDouble();
+                            
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: Colors.blue[100],
+                                  child: Text(
+                                    name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                                    style: const TextStyle(
+                                      color: Colors.blue,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                title: Text(name),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(email),
+                                    Text(
+                                      'Balance: \$${balance.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        color: balance >= 0 ? Colors.green : Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => _showDeleteUserDialog(user),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
+  void _showAddUserDialog() {
+    final emailController = TextEditingController();
+    final nameController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add New User'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.trim().isEmpty ||
+                  emailController.text.trim().isEmpty ||
+                  passwordController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please fill all fields')),
+                );
+                return;
+              }
+
+              Navigator.pop(context);
+              await _addUser(
+                nameController.text.trim(),
+                emailController.text.trim(),
+                passwordController.text.trim(),
+              );
+            },
+            child: const Text('Add User'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addUser(String name, String email, String password) async {
+    try {
+      // Create user in Firebase Auth
+      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (credential.user != null) {
+        // Update display name
+        await credential.user!.updateDisplayName(name);
+
+        // Create user document in Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(credential.user!.uid)
+            .set({
+          'email': email,
+          'name': name,
+          'balance': 0.0,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('User $name added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Reload users
+        _loadUsers();
+      }
+    } catch (e) {
+      String errorMessage = 'Failed to add user';
+      if (e.toString().contains('email-already-in-use')) {
+        errorMessage = 'Email already exists';
+      } else if (e.toString().contains('weak-password')) {
+        errorMessage = 'Password is too weak';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showDeleteUserDialog(Map<String, dynamic> user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete User'),
+        content: Text('Are you sure you want to delete ${user['name']}? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteUser(user);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteUser(Map<String, dynamic> user) async {
+    try {
+      final userId = user['id'];
+      
+      // Delete user document from Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .delete();
+
+      // Note: We can't delete the user from Firebase Auth directly from client-side
+      // This would require Firebase Admin SDK or Cloud Functions
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('User ${user['name']} deleted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Reload users
+      _loadUsers();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete user: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

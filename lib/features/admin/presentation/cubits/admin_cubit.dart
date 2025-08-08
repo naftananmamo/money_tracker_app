@@ -15,10 +15,25 @@ class AdminCubit extends Cubit<AdminState> {
       if (success) {
         emit(AdminLoginSuccess(email));
       } else {
-        emit(AdminLoginFailure('Invalid credentials'));
+        emit(AdminLoginFailure('Invalid credentials or not an admin user'));
       }
     } catch (e) {
-      emit(AdminLoginFailure('Login failed: ${e.toString()}'));
+      String errorMessage = 'Login failed';
+      
+      // Provide more specific error messages for common issues
+      if (e.toString().contains('user-not-found')) {
+        errorMessage = 'No user found with this email address';
+      } else if (e.toString().contains('wrong-password')) {
+        errorMessage = 'Incorrect password';
+      } else if (e.toString().contains('invalid-email')) {
+        errorMessage = 'Invalid email format';
+      } else if (e.toString().contains('too-many-requests')) {
+        errorMessage = 'Too many failed attempts. Please try again later';
+      } else {
+        errorMessage = 'Login failed. Please check your credentials';
+      }
+      
+      emit(AdminLoginFailure(errorMessage));
     }
   }
 
@@ -44,21 +59,6 @@ class AdminCubit extends Cubit<AdminState> {
       }
     } catch (e) {
       emit(AdminLoginFailure('Status check failed: ${e.toString()}'));
-    }
-  }
-
-  Future<void> createAdmin(String email, String password) async {
-    emit(AdminLoading());
-    
-    try {
-      final success = await _adminRepo.createAdmin(email, password);
-      if (success) {
-        emit(AdminLoginSuccess(email));
-      } else {
-        emit(AdminLoginFailure('Failed to create admin'));
-      }
-    } catch (e) {
-      emit(AdminLoginFailure('Admin creation failed: ${e.toString()}'));
     }
   }
 

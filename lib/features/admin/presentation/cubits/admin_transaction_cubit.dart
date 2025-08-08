@@ -106,4 +106,21 @@ class AdminTransactionCubit extends Cubit<AdminTransactionState> {
       emit(AdminTransactionError('Remove money failed: ${e.toString()}'));
     }
   }
+
+  Future<void> deleteTransaction(String transactionId) async {
+    emit(AdminTransactionLoading());
+    
+    try {
+      final success = await adminRepo.deleteTransaction(transactionId);
+      if (success) {
+        emit(AdminActionSuccess('Transaction deleted successfully'));
+        // Reload transactions to show updated list
+        await loadTransactions();
+      } else {
+        emit(AdminTransactionError('Failed to delete transaction'));
+      }
+    } catch (e) {
+      emit(AdminTransactionError('Delete transaction failed: ${e.toString()}'));
+    }
+  }
 }

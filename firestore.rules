@@ -1,7 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow admin collection access for admin login
+    // Allow admin collection access for admin login (both admin and admins collections)
+    match /admin/{adminEmail} {
+      allow read, write: if true; // Allow admin operations
+    }
+    
     match /admins/{adminEmail} {
       allow read, write: if true; // Allow admin operations
     }

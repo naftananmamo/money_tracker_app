@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../domain/repos/admin_repo.dart';
 
 class FirebaseAdminRepo implements AdminRepo {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   
   // Cache to reduce Firebase reads
   Map<String, bool> _adminCache = {};
@@ -17,7 +19,7 @@ class FirebaseAdminRepo implements AdminRepo {
         return _adminCache[email]!;
       }
       
-      final doc = await _firestore.collection('admins').doc(email).get();
+      final doc = await _firestore.collection('admin').doc(email).get();
       final exists = doc.exists;
       
       // Update cache
@@ -36,20 +38,6 @@ class FirebaseAdminRepo implements AdminRepo {
   }
 
   @override
-  Future<bool> createAdmin(String email, String password) async {
-    try {
-      await _firestore.collection('admins').doc(email).set({
-        'email': email,
-        'password': password, // In production, this should be hashed
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  @override
   Future<bool> isAdmin(String email) async {
     return await checkAdminExists(email);
   }
@@ -57,24 +45,30 @@ class FirebaseAdminRepo implements AdminRepo {
   @override
   Future<bool> loginAdmin(String email, String password) async {
     try {
-      // Single read to check both existence and password
-      final doc = await _firestore.collection('admins').doc(email).get();
-      if (!doc.exists) {
-        return false; // Admin doesn't exist in Firebase
+      // First authenticate with Firebase Auth
+      final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      // If auth successful, check if user is admin in Firestore
+      if (userCredential.user != null) {
+        final doc = await _firestore.collection('admin').doc(email).get();
+        final isAdmin = doc.exists;
+        
+        // Update cache on successful admin login
+        if (isAdmin) {
+          _adminCache[email] = true;
+          _lastCacheUpdate = DateTime.now();
+        }
+        
+        return isAdmin;
       }
       
-      final adminData = doc.data()!;
-      final isValid = adminData['password'] == password;
-      
-      // Update cache on successful login
-      if (isValid) {
-        _adminCache[email] = true;
-        _lastCacheUpdate = DateTime.now();
-      }
-      
-      return isValid;
-    } catch (e) {
       return false;
+    } catch (e) {
+      // Re-throw the error so the cubit can handle it with specific messages
+      throw e;
     }
   }
 
@@ -180,7 +174,8 @@ class FirebaseAdminRepo implements AdminRepo {
         final userSnapshot = await transaction.get(userDoc);
         if (!userSnapshot.exists) return;
         
-        final currentBalance = (userSnapshot.data()!['balance'] ?? 0.0).toDouble();
+        final userData = userSnapshot.data()!;
+        final currentBalance = (userData['balance'] ?? 0.0).toDouble();
         final newBalance = currentBalance + amount;
         
         transaction.update(userDoc, {'balance': newBalance});
@@ -188,9 +183,13 @@ class FirebaseAdminRepo implements AdminRepo {
         // Add transaction record
         transaction.set(_firestore.collection('transactions').doc(), {
           'userId': userId,
+          'userName': userData['name'] ?? userData['displayName'] ?? 'Unknown',
+          'userEmail': userData['email'] ?? 'Unknown',
           'amount': amount,
-          'type': 'admin_add',
-          'reason': reason,
+          'type': 'income',
+          'description': reason,
+          'category': 'Admin Action',
+          'adminAction': true,
           'adminEmail': adminEmail,
           'timestamp': FieldValue.serverTimestamp(),
           'balanceAfter': newBalance,
@@ -212,7 +211,8 @@ class FirebaseAdminRepo implements AdminRepo {
         final userSnapshot = await transaction.get(userDoc);
         if (!userSnapshot.exists) return;
         
-        final currentBalance = (userSnapshot.data()!['balance'] ?? 0.0).toDouble();
+        final userData = userSnapshot.data()!;
+        final currentBalance = (userData['balance'] ?? 0.0).toDouble();
         final newBalance = currentBalance - amount;
         
         transaction.update(userDoc, {'balance': newBalance});
@@ -220,15 +220,29 @@ class FirebaseAdminRepo implements AdminRepo {
         // Add transaction record
         transaction.set(_firestore.collection('transactions').doc(), {
           'userId': userId,
-          'amount': -amount,
-          'type': 'admin_remove',
-          'reason': reason,
+          'userName': userData['name'] ?? userData['displayName'] ?? 'Unknown',
+          'userEmail': userData['email'] ?? 'Unknown',
+          'amount': amount,
+          'type': 'expense',
+          'description': reason,
+          'category': 'Admin Action',
+          'adminAction': true,
           'adminEmail': adminEmail,
           'timestamp': FieldValue.serverTimestamp(),
           'balanceAfter': newBalance,
         });
       });
       
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> deleteTransaction(String transactionId) async {
+    try {
+      await _firestore.collection('transactions').doc(transactionId).delete();
       return true;
     } catch (e) {
       return false;

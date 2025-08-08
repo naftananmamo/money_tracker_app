@@ -1,6 +1,5 @@
 abstract class AdminRepo {
   Future<bool> checkAdminExists(String email);
-  Future<bool> createAdmin(String email, String password);
   Future<bool> isAdmin(String email);
   Future<bool> loginAdmin(String email, String password);
   Future<List<Map<String, dynamic>>> getAllTransactions();
@@ -11,4 +10,5 @@ abstract class AdminRepo {
   Future<List<Map<String, dynamic>>> getAllUsers();
   Future<bool> addMoneyToUser(String userId, double amount, String reason, String adminEmail);
   Future<bool> removeMoneyFromUser(String userId, double amount, String reason, String adminEmail);
+  Future<bool> deleteTransaction(String transactionId);
 }

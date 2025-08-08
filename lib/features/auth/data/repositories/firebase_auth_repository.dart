@@ -24,8 +24,33 @@ class FirebaseAuthRepository implements AuthRepository {
       } else {
         return const Left(AuthFailure('Sign in failed'));
       }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'No user found with this email address. Please check your email or register first.';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Incorrect password. Please try again.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Invalid email format. Please enter a valid email address.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'This account has been disabled. Please contact support.';
+          break;
+        case 'too-many-requests':
+          errorMessage = 'Too many failed login attempts. Please try again later.';
+          break;
+        case 'network-request-failed':
+          errorMessage = 'Network error. Please check your internet connection.';
+          break;
+        default:
+          errorMessage = 'Login failed. Please check your email and password.';
+      }
+      return Left(AuthFailure(errorMessage));
     } catch (e) {
-      return Left(AuthFailure(e.toString()));
+      return Left(AuthFailure('An unexpected error occurred. Please try again.'));
     }
   }
 
@@ -56,8 +81,27 @@ class FirebaseAuthRepository implements AuthRepository {
       } else {
         return const Left(AuthFailure('User creation failed'));
       }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'email-already-in-use':
+          errorMessage = 'An account with this email already exists. Please sign in instead.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Invalid email format. Please enter a valid email address.';
+          break;
+        case 'weak-password':
+          errorMessage = 'Password is too weak. Please use at least 6 characters.';
+          break;
+        case 'network-request-failed':
+          errorMessage = 'Network error. Please check your internet connection.';
+          break;
+        default:
+          errorMessage = 'Registration failed. Please try again.';
+      }
+      return Left(AuthFailure(errorMessage));
     } catch (e) {
-      return Left(AuthFailure(e.toString()));
+      return Left(AuthFailure('An unexpected error occurred during registration.'));
     }
   }
 

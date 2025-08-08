@@ -228,15 +228,6 @@ class _UserDashboardState extends State<UserDashboard> {
                 children: [
                   Expanded(
                     child: _buildActionButton(
-                      'Add Transaction',
-                      Icons.add,
-                      Colors.green,
-                      () => _showAddTransactionDialog(),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildActionButton(
                       'Reports',
                       Icons.analytics,
                       Colors.blue,
@@ -579,22 +570,6 @@ class _UserDashboardState extends State<UserDashboard> {
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
-  }
-
-  void _showAddTransactionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Transaction'),
-        content: const Text('Transaction feature will be implemented soon.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showReportsDialog() {
