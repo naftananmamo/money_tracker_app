@@ -19,11 +19,24 @@ class FirebaseAuthRepository implements AuthRepository {
         email: email,
         password: password,
       );
-      if (credential.user != null) {
-        return Right(credential.user!);
-      } else {
-        return const Left(AuthFailure('Sign in failed'));
+       if (credential.user != null) {
+      // Force refresh user state from server
+      await credential.user!.reload();
+      final refreshedUser = FirebaseAuth.instance.currentUser;
+
+      if (refreshedUser != null && !refreshedUser.emailVerified) {
+        await _auth.signOut();
+        return const Left(
+          AuthFailure('Please verify your email before logging in.')
+        );
       }
+
+      return Right(credential.user!);
+    } else {
+      return const Left(AuthFailure('Sign in failed'));
+    }
+
+
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
@@ -68,6 +81,7 @@ class FirebaseAuthRepository implements AuthRepository {
       
       if (credential.user != null) {
         // Update display name
+        await credential.user!.sendEmailVerification();
         await credential.user!.updateDisplayName(name);
         
         // Create user document in Firestore
@@ -75,7 +89,10 @@ class FirebaseAuthRepository implements AuthRepository {
           'email': email,
           'name': name,
           'createdAt': FieldValue.serverTimestamp(),
+          'emailVerified': false
         });
+        // Sign the user out immediately after registration
+        await _auth.signOut();
         
         return Right(credential.user!);
       } else {

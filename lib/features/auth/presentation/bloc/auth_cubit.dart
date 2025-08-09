@@ -89,7 +89,8 @@ class AuthCubit extends Cubit<AuthState> {
 
     result.fold(
       (failure) => emit(AuthFailure(failure.message)),
-      (user) => emit(AuthSuccess(UserRole.tedi)), // Default to tedi role
-    );
-  }
-}
+       (_) => emit(const AuthRegistrationSuccess(
+      message: 'Registration successful! Please check your email for a verification link before logging in.',
+    )),
+  );
+  }}

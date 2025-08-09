@@ -7,7 +7,7 @@ class FirebaseAdminRepo implements AdminRepo {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
   // Cache to reduce Firebase reads
-  Map<String, bool> _adminCache = {};
+  final Map<String, bool> _adminCache = {};
   DateTime? _lastCacheUpdate;
   static const Duration _cacheTimeout = Duration(minutes: 5);
 
@@ -68,7 +68,7 @@ class FirebaseAdminRepo implements AdminRepo {
       return false;
     } catch (e) {
       // Re-throw the error so the cubit can handle it with specific messages
-      throw e;
+      rethrow;
     }
   }
 

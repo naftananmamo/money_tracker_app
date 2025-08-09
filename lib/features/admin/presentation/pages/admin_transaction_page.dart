@@ -385,6 +385,8 @@ class _AdminTransactionPageState extends State<AdminTransactionPage> {
 }
 
 class UserMoneyDialog extends StatefulWidget {
+  const UserMoneyDialog({super.key});
+
   @override
   _UserMoneyDialogState createState() => _UserMoneyDialogState();
 }
@@ -632,6 +634,8 @@ class _UserMoneyDialogState extends State<UserMoneyDialog> {
 }
 
 class UserManagementDialog extends StatefulWidget {
+  const UserManagementDialog({super.key});
+
   @override
   _UserManagementDialogState createState() => _UserManagementDialogState();
 }

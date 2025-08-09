@@ -36,13 +36,20 @@ class _RegisterPageState extends State<RegisterPage> {
       backgroundColor: Colors.grey[50],
       body: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
-          if (state is AuthSuccess) {
+          if (state is AuthRegistrationSuccess) {
             // Navigate to main dashboard
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const MainDashboard(),
-              ),
-            );
+             ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(state.message),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 3),
+      ),
+    );// Delay navigation until after snackbar
+    Future.delayed(const Duration(seconds: 3), () {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+    });
           } else if (state is AuthFailure) {
             // Show error message
             ScaffoldMessenger.of(context).showSnackBar(

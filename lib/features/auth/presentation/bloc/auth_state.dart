@@ -50,3 +50,11 @@ class AuthCheckResult extends AuthState {
   @override
   List<Object> get props => [isAuthenticated, role];
 }
+class AuthRegistrationSuccess extends AuthState {
+  final String message;
+
+  const AuthRegistrationSuccess({required this.message});
+
+  @override
+  List<Object> get props => [message];
+}
