@@ -89,8 +89,15 @@ class AuthCubit extends Cubit<AuthState> {
 
     result.fold(
       (failure) => emit(AuthFailure(failure.message)),
-       (_) => emit(const AuthRegistrationSuccess(
-      message: 'Registration successful! Please check your email for a verification link before logging in.',
-    )),
-  );
+      (user) async {
+        try {
+          await user.sendEmailVerification();
+          emit(const AuthRegistrationSuccess(
+            message: 'Registration successful! Please check your email for a verification link before logging in.',
+          ));
+        } catch (e) {
+          emit(AuthFailure('Registration succeeded, but failed to send verification email.'));
+        }
+      },
+    );
   }}

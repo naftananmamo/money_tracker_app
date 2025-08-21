@@ -92,7 +92,23 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
     required String name,
   }) async {
-    return const Left(ValidationFailure('Email/password authentication not supported in role-based auth'));
+    try {
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = userCredential.user;
+      if (user != null) {
+        // Optionally set displayName
+        await user.updateDisplayName(name);
+        await user.reload();
+        return Right(FirebaseAuth.instance.currentUser!);
+      } else {
+        return Left(UnknownFailure('User creation failed.'));
+      }
+    } catch (e) {
+      return Left(UnknownFailure('Registration failed: $e'));
+    }
   }
 
   @override
